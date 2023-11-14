@@ -16,7 +16,7 @@ class Tracker:
         """
         self.min_match_count = min_match_count
         self.inlier_threshold = inlier_threshold
-        self.overlay = overlay
+        self.reference = reference
 
         # Initialize SIFT detector
         sift = cv2.SIFT_create()
@@ -53,47 +53,36 @@ class Tracker:
             return H
         else:
             return None
-    
-    def augment_frame(self,frame,H):
-        """ Draw overlay image on video frame.
+
+    def augment_frame(self, frame, H):
+        """ Draw border on video frame based on homography, with the top border in red.
             
             Arguments:
                 frame: frame to be drawn on [H,W,3]
                 H: homography [3,3]
             Returns:
-                augmented frame [H,W,3]
+                frame with border [H,W,3]
         """
-        # Get dimensions of the frame and the overlay
+        # Get dimensions of the frame
         h, w = frame.shape[:2]
-        overlay_h, overlay_w = self.overlay.shape[:2]
 
-        # Create an all-white image of the same size as the overlay
-        white_overlay = np.ones_like(self.overlay) * 255
-
-        # Warp the white overlay image using the homography to create an alpha mask
-        alpha_mask = cv2.warpPerspective(white_overlay, H, (w, h))
-
-        # Warp the actual overlay image
-        warped_overlay = cv2.warpPerspective(self.overlay, H, (w, h))
-
-        # Use the alpha mask to blend the warped overlay and the original frame
-        # Normalize alpha mask to range [0, 1]
-        alpha_mask = alpha_mask.astype(float) / 255
-        # Blend the original frame and the warped overlay using the alpha mask
-        augmented_frame = (1 - alpha_mask) * frame + alpha_mask * warped_overlay
-
-        # Define the corners of the overlay image
-        overlay_corners = np.float32([[0, 0], [overlay_w, 0], [overlay_w, overlay_h], [0, overlay_h]]).reshape(-1, 1, 2)
+        # Define the corners of the reference image
+        ref_h, ref_w = self.reference.shape[:2]
+        ref_corners = np.float32([[0, 0], [ref_w, 0], [ref_w, ref_h], [0, ref_h]]).reshape(-1, 1, 2)
 
         # Transform the corners with the homography
-        transformed_corners = cv2.perspectiveTransform(overlay_corners, H)
+        transformed_corners = cv2.perspectiveTransform(ref_corners, H)
 
-        # Draw a thick blue border around the transformed corners
-        num_corners = len(transformed_corners)
-        for i in range(num_corners):
+        # Draw a red line for the top border
+        pt1 = tuple(transformed_corners[0][0].astype(int))
+        pt2 = tuple(transformed_corners[1][0].astype(int))
+        cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=5)  # Red line for the top border
+
+        # Draw blue lines for the other sides
+        for i in range(1, len(transformed_corners)):
             pt1 = tuple(transformed_corners[i][0].astype(int))
-            pt2 = tuple(transformed_corners[(i+1) % num_corners][0].astype(int))
-            cv2.line(augmented_frame, pt1, pt2, (255, 0, 0), thickness=5)
+            pt2 = tuple(transformed_corners[(i+1) % len(transformed_corners)][0].astype(int))
+            cv2.line(frame, pt1, pt2, (255, 0, 0), thickness=5)  # Blue lines for the other sides
 
-        return augmented_frame.astype(np.uint8)
+        return frame.astype(np.uint8)
 

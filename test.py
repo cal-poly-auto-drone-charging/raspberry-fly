@@ -26,7 +26,7 @@ while cap.isOpened():
     frame_counter += 1  # Increment frame counter
 
     # Process only 1 out of every 20 frames
-    if frame_counter > 180*9:
+    if frame_counter > 180*11:
         H = tracker.compute_homography(frame)
         if H is not None:
             frame_out = tracker.augment_frame(frame, H)
