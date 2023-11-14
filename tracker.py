@@ -54,35 +54,64 @@ class Tracker:
         else:
             return None
 
-    def augment_frame(self, frame, H):
-        """ Draw border on video frame based on homography, with the top border in red.
+    def augment_frame(self, frame, H, yaw='--', altitude='--', distance='--'):
+        """ Draw border and add text on video frame based on homography.
             
             Arguments:
                 frame: frame to be drawn on [H,W,3]
                 H: homography [3,3]
+                yaw: Yaw value as a string
+                altitude: Altitude value as a string
+                distance: Distance value as a string
             Returns:
-                frame with border [H,W,3]
+                frame with border and text [H,W,3]
         """
-        # Get dimensions of the frame
-        h, w = frame.shape[:2]
-
         # Define the corners of the reference image
         ref_h, ref_w = self.reference.shape[:2]
         ref_corners = np.float32([[0, 0], [ref_w, 0], [ref_w, ref_h], [0, ref_h]]).reshape(-1, 1, 2)
 
-        # Transform the corners with the homography
-        transformed_corners = cv2.perspectiveTransform(ref_corners, H)
+        target_spotted = "Target Spotted: Yes" if H is not None else "Target Spotted: No"
+        corner_texts = ["Top Left: -->", "Top Right: -->", "Bottom Right: -->", "Bottom Left: -->"]
 
-        # Draw a red line for the top border
-        pt1 = tuple(transformed_corners[0][0].astype(int))
-        pt2 = tuple(transformed_corners[1][0].astype(int))
-        cv2.line(frame, pt1, pt2, (0, 0, 255), thickness=5)  # Red line for the top border
+        if H is not None:
+            # Transform the corners with the homography
+            transformed_corners = cv2.perspectiveTransform(ref_corners, H)
 
-        # Draw blue lines for the other sides
-        for i in range(1, len(transformed_corners)):
-            pt1 = tuple(transformed_corners[i][0].astype(int))
-            pt2 = tuple(transformed_corners[(i+1) % len(transformed_corners)][0].astype(int))
-            cv2.line(frame, pt1, pt2, (255, 0, 0), thickness=5)  # Blue lines for the other sides
+            # Draw the border
+            num_corners = len(transformed_corners)
+            for i in range(num_corners):
+                pt1 = tuple(transformed_corners[i][0].astype(int))
+                pt2 = tuple(transformed_corners[(i+1) % num_corners][0].astype(int))
+                color = (0, 0, 255) if i == 0 else (255, 0, 0)  # Red for top, blue for others
+                cv2.line(frame, pt1, pt2, color, thickness=5)
+
+            # Update corner text with actual coordinates
+            corner_texts = [
+                f"Top Left: {tuple(transformed_corners[0][0].astype(int))}",
+                f"Top Right: {tuple(transformed_corners[1][0].astype(int))}",
+                f"Bottom Right: {tuple(transformed_corners[2][0].astype(int))}",
+                f"Bottom Left: {tuple(transformed_corners[3][0].astype(int))}"
+            ]
+
+        # Text settings
+        text_color = (0, 255, 0)  # Green color for text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        thickness = 1
+
+        # Put the text on the frame
+        y_offset = 20  # Initial y-coordinate for text
+        line_height = 20  # Height of each line of text
+
+        cv2.putText(frame, target_spotted, (10, y_offset), font, font_scale, text_color, thickness, cv2.LINE_AA)
+        for i, text in enumerate(corner_texts):
+            cv2.putText(frame, text, (10, y_offset + (i + 2) * line_height), font, font_scale, text_color, thickness, cv2.LINE_AA)
+
+        # Additional info (Yaw, Altitude, Distance)
+        additional_texts = [f"Yaw: {yaw}", f"Altitude: {altitude}", f"Distance: {distance}"]
+        for i, text in enumerate(additional_texts):
+            cv2.putText(frame, text, (10, y_offset + (i + 7) * line_height), font, font_scale, text_color, thickness, cv2.LINE_AA)
 
         return frame.astype(np.uint8)
+
 
