@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class Tracker:
-    def __init__(self,reference,overlay,min_match_count=10,inlier_threshold=5):
+    def __init__(self,reference,min_match_count=10,inlier_threshold=5.0):
         """ Initializes a Tracker object.
             
             During initialization, this function will compute and store SIFT keypoints
@@ -10,7 +10,6 @@ class Tracker:
 
             Arguments:
                 reference: reference image
-                overlay: overlay image for augmented reality effect
                 min_match_count: minimum number of matches for a video frame to be processed.
                 inlier_threshold: maximum re-projection error for inliers in homography computation
         """
@@ -22,7 +21,7 @@ class Tracker:
         sift = cv2.SIFT_create()
         self.reference_keypoints, self.reference_descriptors = sift.detectAndCompute(reference, None)
         
-    def compute_homography(self, frame, ratio_thresh=0.7):
+    def compute_homography(self, frame, ratio_thresh=0.75):
         """ Calculate homography relating the reference image to a query frame using OpenCV's RANSAC.
         
             Arguments:
@@ -48,7 +47,7 @@ class Tracker:
             dst_pts = np.float32([frame_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
             # Compute homography using OpenCV's RANSAC method
-            H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+            H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self.inlier_threshold)
 
             return H
         else:
@@ -71,7 +70,7 @@ class Tracker:
         ref_corners = np.float32([[0, 0], [ref_w, 0], [ref_w, ref_h], [0, ref_h]]).reshape(-1, 1, 2)
 
         target_spotted = "Target Spotted: Yes" if H is not None else "Target Spotted: No"
-        corner_texts = ["Top Left: -->", "Top Right: -->", "Bottom Right: -->", "Bottom Left: -->"]
+        corner_texts = ["Top Left: --", "Top Right: --", "Bottom Right: --", "Bottom Left: --"]
 
         if H is not None:
             # Transform the corners with the homography
@@ -96,12 +95,12 @@ class Tracker:
         # Text settings
         text_color = (0, 255, 0)  # Green color for text
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        thickness = 1
+        font_scale = 0.75
+        thickness = 2
 
         # Put the text on the frame
-        y_offset = 20  # Initial y-coordinate for text
-        line_height = 20  # Height of each line of text
+        y_offset = 30  # Initial y-coordinate for text
+        line_height = 30  # Height of each line of text
 
         cv2.putText(frame, target_spotted, (10, y_offset), font, font_scale, text_color, thickness, cv2.LINE_AA)
         for i, text in enumerate(corner_texts):
