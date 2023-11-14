@@ -5,17 +5,14 @@ import argparse
 
 # Argument parsing
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', default='S1000644.LRV')
-parser.add_argument('--reference1', default='qr_code.png')
-parser.add_argument('--reference2', default='qr_code_bright.png')
+parser.add_argument('--input', default='IMG_1476.MOV')
+parser.add_argument('--reference1', default='qr_code_bk.png')
 parser.add_argument('--output', default='output.mp4')  # Add output argument
 args = parser.parse_args()
 
 ref1 = cv2.imread(args.reference1)
-ref2 = cv2.imread(args.reference2)
 
 tracker = Tracker(ref1)
-alt_tracker = Tracker(ref2)  # Tracker for the washed-out reference
 
 cap = cv2.VideoCapture(args.input)
 
@@ -38,7 +35,7 @@ while cap.isOpened():
     frame_counter += 1  # Increment frame counter
 
     # Process only 1 out of every 20 frames
-    if frame_counter > 180*8 and frame_counter < 180*14:
+    if True:
         H = tracker.compute_homography(frame)
         if H is None:
             # H = alt_tracker.compute_homography(frame)  # Try with the washed-out reference
