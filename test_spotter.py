@@ -5,12 +5,9 @@ import argparse
 
 # Argument parsing
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', default='input_video.mp4')
+parser.add_argument('--input', default='S1000644.LRV')
 parser.add_argument('--output', default='output.mp4')
 args = parser.parse_args()
-
-# Initialize Spotter with desired parameters (modify these as needed)
-spotter = Spotter(resize_width=640, resize_height=480)
 
 # Open the video
 cap = cv2.VideoCapture(args.input)
@@ -20,15 +17,25 @@ frame_width = int(cap.get(3))
 frame_height = int(cap.get(4))
 frame_fps = int(cap.get(cv2.CAP_PROP_FPS))
 
+print(frame_fps)
+
+# Initialize Spotter with desired parameters (modify these as needed)
+spotter = Spotter(resize_width=frame_width, resize_height=frame_height)
+
 # Define the codec and create VideoWriter object
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # or 'XVID'
 out = cv2.VideoWriter(args.output, fourcc, frame_fps, (frame_width, frame_height))
+
+frame_number = 0
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
 
+    frame_number += 1
+
+    if frame_number > 60*51
     # Process the frame with the Spotter
     processed_frame = spotter.debug_frame(frame)
 

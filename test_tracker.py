@@ -6,11 +6,11 @@ import argparse
 # Argument parsing
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', default='IMG_1476.MOV')
-parser.add_argument('--reference1', default='qr_code_bk.png')
+parser.add_argument('--reference', default='qr_code_bk.png')
 parser.add_argument('--output', default='output.mp4')  # Add output argument
 args = parser.parse_args()
 
-ref1 = cv2.imread(args.reference1)
+ref1 = cv2.imread(args.reference)
 
 tracker = Tracker(ref1)
 
@@ -38,9 +38,7 @@ while cap.isOpened():
     if True:
         H = tracker.compute_homography(frame)
         if H is None:
-            # H = alt_tracker.compute_homography(frame)  # Try with the washed-out reference
-            # frame_out = alt_tracker.augment_frame(frame, H)
-            frame_out = tracker.augment_frame(frame, H)
+            # Output from spotter here
         else:
             frame_out = tracker.augment_frame(frame, H)
 

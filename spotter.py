@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class Spotter:
-    def __init__(self, resize_width, resize_height, white_thresholds=((0, 0, 168), (172, 111, 255)), blur_kernel_size=(5, 5), edge_thresholds=(50, 150), min_area=100, max_area=5000, aspect_ratio_range=(0.9, 1.1), morph_kernel_size=(5, 5)):
+    def __init__(self, resize_width, resize_height, white_thresholds=((0, 0, 220), (172, 50, 255)), blur_kernel_size=(5, 5), edge_thresholds=(50, 150), min_area=100, max_area=5000, aspect_ratio_range=(0.7, 1.3), morph_kernel_size=(5, 5)):
         self.resize_width = resize_width
         self.resize_height = resize_height
         self.white_thresholds = white_thresholds
@@ -16,7 +16,7 @@ class Spotter:
     def process_frame(self, frame):
         resized_frame = self.resize_frame(frame)
         contrast_frame = self.enhance_contrast(resized_frame)
-        white_filtered_frame = self.filter_white_color(contrast_frame)
+        white_filtered_frame = self.filter_white_color(resized_frame)
         edges = self.detect_edges(white_filtered_frame)
         contours = self.find_contours(edges)
 
@@ -47,6 +47,7 @@ class Spotter:
         blurred = cv2.GaussianBlur(gray, self.blur_kernel_size, 0)
         return cv2.Canny(blurred, self.edge_thresholds[0], self.edge_thresholds[1])
 
+
     def find_contours(self, edge_frame):
         contours, _ = cv2.findContours(edge_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         filtered_contours = []
@@ -57,7 +58,7 @@ class Spotter:
                 perimeter = cv2.arcLength(contour, True)
                 approx = cv2.approxPolyDP(contour, 0.04 * perimeter, True)
 
-                if len(approx) < 6 and len(approx > 3):  # Check if the approximated contour has 4 sides
+                if len(approx) == 4:  # Check if the approximated contour has 4 sides
                     (x, y, w, h) = cv2.boundingRect(approx)
                     aspect_ratio = w / float(h)
                     if self.aspect_ratio_range[0] < aspect_ratio < self.aspect_ratio_range[1]:
