@@ -2,12 +2,18 @@ import cv2
 import numpy as np
 
 class TargetFinder:
-    def __init__(self, tracker, spotter, frame_width, frame_height, annotate=False):
+    def __init__(self, tracker, spotter, frame_width, frame_height, annotate=False, 
+                 focal_length=0.00304, target_dimensions=(0.2032,0.2032), camera_pitch=-90):
         self.tracker = tracker
         self.spotter = spotter
         self.frame_width = frame_width
         self.frame_height = frame_height
         self.annotate = annotate
+
+        # Calibrations
+        self.focal_length = focal_length
+        self.target_dimensions = target_dimensions
+        self.camera_pitch = camera_pitch
 
         # Control variables
         self.use_tracker = False
@@ -62,7 +68,10 @@ class TargetFinder:
                 self.use_tracker = True
                 self.tracker_failures = 0
 
-        return box
+        # Reshape the box to have the same 3D shape as the tracker's output
+        box_reshaped = box.reshape(-1, 1, 2)
+        return box_reshaped
+
 
     def handle_spotter_failure(self):
         self.spotter_success_cycles = 0
@@ -73,48 +82,82 @@ class TargetFinder:
             self.use_tracker = True
 
     def annotate_frame(self, frame, corners):
+        # Calculate cylindrical coordinates if corners are available
         if corners is not None:
-            corners = np.intp(corners)
-            cv2.drawContours(frame, [corners], 0, (0, 255, 0), 2)
+            radius, azimuth, height = self.calculate_cylindrical_coordinates(corners)
+            if radius is not None:
+                corners = np.intp(corners)
+                cv2.drawContours(frame, [corners], 0, (0, 255, 0), 2)
+                # Format the float values to one decimal place
+                radius = f"{radius:.1f}"
+                azimuth = f"{azimuth:.1f}"
+                height = f"{height:.1f}"
+            else:
+                radius = azimuth = height = 'N/A'
+        else:
+            radius = azimuth = height = 'N/A'
+
+        t_string = "Tracker"
+        s_string = "Spotter"
+
+        # Text to be displayed
+        text_lines = [
+            f"Strategy: {t_string if self.use_tracker else s_string}",
+            f"Handoff Readiness: {self.spotter_success_cycles}",
+            f"Spotter Miss Count: {self.spotter_failure_cycles}",
+            f"Tracker Miss Count: {self.tracker_failures}",
+            f"Blur Sigma: {self.blur_sigma:.1f}" if self.blur_sigma is not None else "Blur Sigma: N/A",
+            "",
+            f"Radius : {radius}",
+            f"Azimuth: {azimuth}",
+            f"Height : {height}"
+        ]
+
+        # Display each line of text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        color = (255, 255, 255)  # White color
+        thickness = 1
+        line_type = cv2.LINE_AA
+        x, y = 10, 30  # Starting position
+
+        for line in text_lines:
+            cv2.putText(frame, line, (x, y), font, font_scale, color, thickness, line_type)
+            y += 20  # Move to the next line
+
         return frame
 
-    def calculate_spherical_coordinates(self, corners, focal_length, pitch, frame_size, target_size):
-        """
-        Calculate the spherical coordinates (radius, azimuth, elevation) of the target.
+    def calculate_cylindrical_coordinates(self, corners):
+        if corners is None or len(corners) != 4:
+            return None, None, None
 
-        Parameters:
-        corners: Corners of the target in the image.
-        focal_length: Focal length of the camera.
-        pitch: Pitch angle of the camera (in degrees).
-        frame_size: Size of the frame (width, height).
-        target_size: Known size of the target (width, height).
+        # Reshape corners to 2D if necessary (assuming shape is [4, 1, 2])
+        if corners.ndim == 3:
+            corners_2d = corners.reshape(-1, 2)
+        else:
+            corners_2d = corners
 
-        Returns:
-        (radius, azimuth, elevation): Spherical coordinates of the target center.
-        """
-        # Convert pitch to radians
-        pitch = np.radians(pitch)
+        width, height = self.target_dimensions
+        pixel_width = np.linalg.norm(corners_2d[0] - corners_2d[1])
+        pixel_height = np.linalg.norm(corners_2d[0] = corners_2d[2])
+        scale_factor = (width / pixel_width) if (pixel_width >= pixel_height) else (height / pixel_height)
+        # Calculate distance to target
+        distance = self.focal_length * scale_factor
 
-        # Calculate the center of the target in image coordinates
-        center_x, center_y = np.mean(corners, axis=0)
 
-        # Calculate the physical size of the target in the image
-        pixel_width = np.linalg.norm(corners[0] - corners[1])
-        pixel_height = np.linalg.norm(corners[0] - corners[3])
+        # Calculate the center of the rectangle
+        center = np.mean(corners_2d, axis=0)
+        center_x, center_y = center[0], center[1]
 
-        # Calculate the distance to the target (radius)
-        actual_width, actual_height = target_size
-        width_ratio = actual_width / pixel_width
-        height_ratio = actual_height / pixel_height
-        distance_width = width_ratio * focal_length
-        distance_height = height_ratio * focal_length
-        radius = (distance_width + distance_height) / 2  # Average distance
+        # Calculate azimuth
+        frame_center_x, frame_center_y = self.frame_width / 2, self.frame_height / 2
+        azimuth = np.arctan2(center_y - frame_center_y, center_x - frame_center_x)
 
-        # Calculate azimuth and elevation
-        frame_width, frame_height = frame_size
-        x = (center_x - frame_width / 2) * width_ratio
-        y = (center_y - frame_height / 2) * height_ratio
-        azimuth = np.arctan2(x, radius)
-        elevation = np.arctan2(y, radius) - pitch
+        # Calculate radius
+        radius = 0
 
-        return radius, np.degrees(azimuth), np.degrees(elevation)
+        # Estimate height using target dimensions and rectangle size in the image
+        estimated_height = scale_factor * self.frame_width
+
+        return radius, np.degrees(azimuth) + 90, estimated_height
+
