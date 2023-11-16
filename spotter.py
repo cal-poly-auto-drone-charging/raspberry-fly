@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class Spotter:
-    HISTORY_SIZE = 10
+    HISTORY_SIZE = 20
     SCORE_CYCLE_DECAY = 0.9
     SCORE_TOP_RECTANGLES = 5
     SIMILARITY_POSITION_WEIGHT = 2.0
