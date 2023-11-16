@@ -17,8 +17,6 @@ frame_width = int(cap.get(3))
 frame_height = int(cap.get(4))
 frame_fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-print(frame_fps)
-
 # Initialize Spotter with desired parameters (modify these as needed)
 spotter = Spotter(resize_width=frame_width, resize_height=frame_height)
 
@@ -35,15 +33,23 @@ while cap.isOpened():
 
     frame_number += 1
 
-    if frame_number > 60*51
-    # Process the frame with the Spotter
-    processed_frame = spotter.debug_frame(frame)
+    if frame_number < frame_fps * 40:
+        continue
 
-    # Write the processed frame to the output video
-    out.write(processed_frame)
+    # Get the best rectangle for the current frame
+    best_rect = spotter.get_best_rect(frame)
+    
+    # Draw the best rectangle on the frame, if it exists
+    if best_rect is not None:
+        box = cv2.boxPoints(best_rect)
+        box = np.intp(box)
+        cv2.drawContours(frame, [box], 0, (0, 255, 0), 2)
+
+    # Write the frame with the drawn rectangle to the output video
+    out.write(frame)
 
     # Optionally display the frame
-    cv2.imshow('Processed Frame', processed_frame)
+    cv2.imshow('Frame with Best Rectangle', frame)
 
     if cv2.waitKey(1) == 27:  # hit escape to quit
         break

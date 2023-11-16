@@ -6,7 +6,7 @@ import argparse
 
 # Argument parsing
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', default='S1000634.LRV')
+parser.add_argument('--input', default='S1000644.LRV')
 parser.add_argument('--reference', default='qr_code.png')
 parser.add_argument('--output', default='output.mp4')
 args = parser.parse_args()
@@ -21,8 +21,7 @@ frame_height = int(cap.get(4))
 frame_fps = int(cap.get(cv2.CAP_PROP_FPS))
 
 tracker = Tracker(ref1)
-spotter = Spotter(frame_width, frame_height)  # Initialize Spotter with desired width and height
-print(frame_fps)
+spotter = Spotter(frame_width, frame_height)
 
 # Define the codec and create VideoWriter object
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -34,15 +33,23 @@ while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
-    # if frame_number < 30 * 51:
-    #     continue
     frame_number += 1
 
+    if frame_number < frame_fps * 40:
+        continue
+
+    # Compute homography and augment frame
     H = tracker.compute_homography(frame)
     frame_out = tracker.augment_frame(frame, H)
-    contours = spotter.process_frame(frame)  # Use Spotter to process the frame
-    # frame_out = frame.copy()
-    cv2.drawContours(frame_out, contours, -1, (0, 255, 0), 2)  # Draw contours on the frame
+
+    # Get the best rectangle for the current frame
+    best_rect = spotter.get_best_rect(frame)
+
+    # Draw the best rectangle on the frame, if it exists
+    if best_rect is not None:
+        box = cv2.boxPoints(best_rect)
+        box = np.intp(box)
+        cv2.drawContours(frame_out, [box], 0, (0, 255, 0), 2)
 
     out.write(frame_out)  # Write frame to output video
     cv2.imshow('window', frame_out)
