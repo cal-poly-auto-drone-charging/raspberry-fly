@@ -44,11 +44,10 @@ class Spotter:
             self.rect_history.pop()
 
         # Return sorted rectangles
-        return [rect for rect, _ in scored_rectangles]
+        return scored_rectangles
 
     def get_best_rect(self, frame):
         scored_rectangles = self.process_frame(frame)
-        print(scored_rectangles)
         if scored_rectangles:
             return scored_rectangles[0]
         else:

@@ -35,7 +35,7 @@ while cap.isOpened():
         break
     frame_number += 1
 
-    if frame_number < frame_fps * 40:
+    if frame_number < frame_fps * 45:
         continue
 
     # Compute homography and augment frame
@@ -43,10 +43,11 @@ while cap.isOpened():
     frame_out = tracker.augment_frame(frame, H)
 
     # Get the best rectangle for the current frame
-    best_rect = spotter.get_best_rect(frame)
+    best_rect_info = spotter.get_best_rect(frame)
 
     # Draw the best rectangle on the frame, if it exists
-    if best_rect is not None:
+    if best_rect_info is not None:
+        best_rect, score = best_rect_info
         box = cv2.boxPoints(best_rect)
         box = np.intp(box)
         cv2.drawContours(frame_out, [box], 0, (0, 255, 0), 2)
