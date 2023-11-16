@@ -31,11 +31,13 @@ out = cv2.VideoWriter(args.output, fourcc, frame_fps, (frame_width, frame_height
 frame_number = 0
 use_tracker = False  # Initially, don't use tracker
 spotter_success_cycles = 0  # Count successful cycles for spotter
+spotter_failure_cycles = 0
 tracker_failures = 0  # Count failures for tracker
 blur_sigma = None
 
 # thresholds for test
 tracker_fail_thresh = 5
+tracker_wait_period = 20
 blur_success_thresh = 2
 spotter_confidence_thresh = 5
 spotter_duration_thresh = 4
@@ -84,11 +86,17 @@ while cap.isOpened():
                 blur_sigma = np.sqrt(area)
             if score > spotter_confidence_thresh and area > frame_width * frame_height / spotter_area_thresh:
                 spotter_success_cycles += 1
+                spotter_failure_cycles = 0
                 if spotter_success_cycles >= spotter_duration_thresh:
                     use_tracker = True
                     tracker_failures = 0  # Reset tracker failure count
         else:
             spotter_success_cycles = 0  # Reset success count
+            spotter_failure_cycles += 1
+            if spotter_failure_cycles >= tracker_wait_period:
+                tracker_failures = tracker_fail_thresh - 1
+                spotter_failure_cycles = 0
+                use_tracker = True
 
     end_time = time.time()
 
