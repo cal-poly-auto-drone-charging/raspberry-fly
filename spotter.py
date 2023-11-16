@@ -61,7 +61,7 @@ class Spotter:
                 score += decay_factor * self.similarity_score(rect, past_rect)
         return score
 
-    def similarity_score(self, rect1, rect2, position_weight=1.0, size_weight=1.0, angle_weight=1.0):
+    def similarity_score(self, rect1, rect2, position_weight=2.0, size_weight=1.0, angle_weight=1.0):
         center1, size1, angle1 = rect1
         center2, size2, angle2 = rect2
 
