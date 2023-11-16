@@ -49,7 +49,7 @@ while cap.isOpened():
         break
     frame_number += 1
 
-    if frame_number < frame_fps * 30:
+    if frame_number < frame_fps * 0:
         continue
 
     if spotter_success_cycles == 0:
