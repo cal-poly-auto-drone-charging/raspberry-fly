@@ -2,11 +2,12 @@ import cv2
 import numpy as np
 
 class Spotter:
-    def __init__(self, resize_width, resize_height, white_thresholds=((0, 0, 220), (172, 50, 255)), blur_kernel_size=(5, 5), edge_thresholds=(50, 150), min_area=200, max_area=10000, aspect_ratio_range=(0.7, 1.3), morph_kernel_size=(5, 5), rect_area_ratio=0.9):
+    def __init__(self, resize_width, resize_height, white_thresholds=((0, 0, 220), (172, 50, 255)), blur_kernel_size=(75, 75), blur_sigma=1, edge_thresholds=(50, 150), min_area=200, max_area=100000, aspect_ratio_range=(0.7, 1.3), morph_kernel_size=(5, 5), rect_area_ratio=0.9):
         self.resize_width = resize_width
         self.resize_height = resize_height
         self.white_thresholds = white_thresholds
         self.blur_kernel_size = blur_kernel_size
+        self.blur_sigma = blur_sigma
         self.edge_thresholds = edge_thresholds
         self.min_area = min_area
         self.max_area = max_area
@@ -15,12 +16,13 @@ class Spotter:
         self.rect_area_ratio = rect_area_ratio
         self.rect_history = []
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, blur_sigma=None):
+        if blur_sigma is None:
+            blur_sigma = self.blur_sigma
         resized_frame = self.resize_frame(frame)
-        contrast_frame = self.enhance_contrast(resized_frame)
         white_filtered_frame = self.filter_white_color(resized_frame)
         gray = cv2.cvtColor(white_filtered_frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, self.blur_kernel_size, 0)
+        blurred = cv2.GaussianBlur(gray, self.blur_kernel_size, blur_sigma)
         edge_frame = cv2.Canny(blurred, self.edge_thresholds[0], self.edge_thresholds[1])
         contours, _ = cv2.findContours(edge_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         rectangles = []
@@ -46,8 +48,10 @@ class Spotter:
         # Return sorted rectangles
         return scored_rectangles
 
-    def get_best_rect(self, frame):
-        scored_rectangles = self.process_frame(frame)
+    def get_best_rect(self, frame, blur_sigma=None):
+        if blur_sigma is None:
+            blur_sigma = self.blur_sigma
+        scored_rectangles = self.process_frame(frame, blur_sigma)
         if scored_rectangles:
             return scored_rectangles[0]
         else:

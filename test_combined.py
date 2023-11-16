@@ -32,10 +32,12 @@ frame_number = 0
 use_tracker = False  # Initially, don't use tracker
 spotter_success_cycles = 0  # Count successful cycles for spotter
 tracker_failures = 0  # Count failures for tracker
+blur_sigma = None
 
 # thresholds for test
-tracker_fail_thresh = 15
-spotter_confidence_thresh = 9
+tracker_fail_thresh = 5
+blur_success_thresh = 2
+spotter_confidence_thresh = 5
 spotter_duration_thresh = 4
 spotter_area_thresh = 110
 
@@ -45,8 +47,12 @@ while cap.isOpened():
         break
     frame_number += 1
 
-    if frame_number < frame_fps * 45:
+    if frame_number < frame_fps * 40:
         continue
+
+    if spotter_success_cycles == 0:
+        blur_sigma = None
+        pass
 
     start_time = time.time()
 
@@ -61,8 +67,9 @@ while cap.isOpened():
             frame_out = frame
             if tracker_failures >= tracker_fail_thresh:
                 use_tracker = False  # Switch back to spotter
+                #spotter_success_cycles -= 3
     else:
-        best_rect_info = spotter.get_best_rect(frame)
+        best_rect_info = spotter.get_best_rect(frame, blur_sigma)
         frame_out = frame  # Default output is the original frame
 
         if best_rect_info is not None:
@@ -73,6 +80,8 @@ while cap.isOpened():
 
             # Check if conditions to switch to tracker are met
             area = cv2.contourArea(box)
+            if spotter_success_cycles > blur_success_thresh:
+                blur_sigma = np.sqrt(area)
             if score > spotter_confidence_thresh and area > frame_width * frame_height / spotter_area_thresh:
                 spotter_success_cycles += 1
                 if spotter_success_cycles >= spotter_duration_thresh:
@@ -111,10 +120,11 @@ while cap.isOpened():
         f"Score: {score:.1f}" if best_rect_info else "Score: N/A",
         f"Success Cycles: {spotter_success_cycles}",
         f"Failures: {tracker_failures}",
-        f"Area: {area_percentage:.1f}%" if best_rect_info else "Area: N/A"
+        f"Area: {area_percentage:.1f}%" if best_rect_info else "Area: N/A",
+        f"Using Homography Tracker: {use_tracker}"
     ]
     for i, line in enumerate(fsm_info):
-        cv2.putText(frame_out, line, (10, frame_height - 80 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(frame_out, line, (10, frame_height - 100 + i * 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     out.write(frame_out)
     cv2.imshow('window', frame_out)
