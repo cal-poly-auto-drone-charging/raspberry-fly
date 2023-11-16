@@ -49,7 +49,7 @@ while cap.isOpened():
         break
     frame_number += 1
 
-    if frame_number < frame_fps * 40:
+    if frame_number < frame_fps * 30:
         continue
 
     if spotter_success_cycles == 0:
@@ -86,7 +86,7 @@ while cap.isOpened():
                 blur_sigma = np.sqrt(area)
             if score > spotter_confidence_thresh and area > frame_width * frame_height / spotter_area_thresh:
                 spotter_success_cycles += 1
-                spotter_failure_cycles = 0
+                #spotter_failure_cycles = 0
                 if spotter_success_cycles >= spotter_duration_thresh:
                     use_tracker = True
                     tracker_failures = 0  # Reset tracker failure count
