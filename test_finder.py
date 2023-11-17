@@ -23,7 +23,7 @@ def main(input_video, reference_image, output_video=None):
     spotter = Spotter(frame_width, frame_height)
 
     # Initialize TargetFinder with annotation always set to True
-    target_finder = TargetFinder(tracker, spotter, frame_width, frame_height, annotate=True)
+    target_finder = TargetFinder(tracker, spotter, frame_width, frame_height, annotate=True, sensor_dimensions=(0.006287,0.00353644))
 
     # VideoWriter for output, if specified
     out = None

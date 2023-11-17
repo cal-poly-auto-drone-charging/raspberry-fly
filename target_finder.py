@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 class TargetFinder:
-    def __init__(self, tracker, spotter, frame_width, frame_height, annotate=False, 
-                 focal_length=0.00304, target_dimensions=(0.2032,0.2032), camera_pitch=-90):
+    def __init__(self, tracker, spotter, frame_width, frame_height, annotate=False, focal_length=0.00304, 
+                 target_dimensions=(0.2032,0.2032), sensor_dimensions=(0.006287,0.004712)):
         self.tracker = tracker
         self.spotter = spotter
         self.frame_width = frame_width
@@ -13,7 +13,8 @@ class TargetFinder:
         # Calibrations
         self.focal_length = focal_length
         self.target_dimensions = target_dimensions
-        self.camera_pitch = camera_pitch
+        self.sensor_dimensions = sensor_dimensions
+        self.pix_per_meter = (frame_width/sensor_dimensions[0], frame_height/sensor_dimensions[1])
 
         # Control variables
         self.use_tracker = False
@@ -137,13 +138,15 @@ class TargetFinder:
         else:
             corners_2d = corners
 
-        width, height = self.target_dimensions
-        pixel_width = np.linalg.norm(corners_2d[0] - corners_2d[1])
-        pixel_height = np.linalg.norm(corners_2d[0] = corners_2d[2])
-        scale_factor = (width / pixel_width) if (pixel_width >= pixel_height) else (height / pixel_height)
-        # Calculate distance to target
-        distance = self.focal_length * scale_factor
+        # Target Dimensions in meters: Real, on sensor, and ratio real : sensor
+        targ_w_real, targ_h_real = self.target_dimensions
+        targ_w_img = np.linalg.norm(corners_2d[0] - corners_2d[1]) / self.pix_per_meter[0]
+        targ_h_img = np.linalg.norm(corners_2d[0] - corners_2d[2]) / self.pix_per_meter[1]
+        size_ratio = (targ_w_real / targ_w_img) if (targ_w_img >= targ_h_img) else (targ_h_real / targ_h_img)
+        print(f"targ_w_img: {targ_w_img}, targ_w_real: {targ_w_real}, size_ratio: {size_ratio}, focal_length: {self.focal_length}")
 
+        # Calculate Height
+        estimated_height = size_ratio / self.focal_length
 
         # Calculate the center of the rectangle
         center = np.mean(corners_2d, axis=0)
@@ -154,10 +157,7 @@ class TargetFinder:
         azimuth = np.arctan2(center_y - frame_center_y, center_x - frame_center_x)
 
         # Calculate radius
-        radius = 0
-
-        # Estimate height using target dimensions and rectangle size in the image
-        estimated_height = scale_factor * self.frame_width
+        radius = np.linalg.norm([center_x - frame_center_x, center_y - frame_center_y])
 
         return radius, np.degrees(azimuth) + 90, estimated_height
 
