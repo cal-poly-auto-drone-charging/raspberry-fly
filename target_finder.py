@@ -143,7 +143,7 @@ class TargetFinder:
         targ_w_img = np.linalg.norm(corners_2d[0] - corners_2d[1]) / self.pix_per_meter[0]
         targ_h_img = np.linalg.norm(corners_2d[0] - corners_2d[2]) / self.pix_per_meter[1]
         size_ratio = (targ_w_real / targ_w_img) if (targ_w_img >= targ_h_img) else (targ_h_real / targ_h_img)
-        print(f"targ_w_img: {targ_w_img}, targ_w_real: {targ_w_real}, size_ratio: {size_ratio}, focal_length: {self.focal_length}")
+        #print(f"targ_w_img: {targ_w_img}, targ_w_real: {targ_w_real}, size_ratio: {size_ratio}, focal_length: {self.focal_length}")
 
         # Calculate Height
         estimated_height = size_ratio / self.focal_length
