@@ -41,18 +41,12 @@ def main(input_source, reference_image, output_video=None):
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_video, fourcc, frame_fps, (frame_width, frame_height))
 
-    previous_frame = None
-
     # Main processing loop
     while True:
         if use_camera:
             frame = camera_stream.read_frame()
             if frame is None:
                 break
-            if previous_frame is not None:
-                if (frame == previous_frame).all():
-                    print("Warning: Frame has not changed from previous iteration.")
-
         else:
             ret, frame = cap.read()
             if not ret:
@@ -69,8 +63,6 @@ def main(input_source, reference_image, output_video=None):
         # Write to output file if specified
         if out:
             out.write(annotated_frame)
-
-        previous_frame = frame.copy()  # Keep a copy of the frame for comparison in the next loop iteration
 
         if cv2.waitKey(1) == 27:
             break

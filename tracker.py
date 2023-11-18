@@ -26,16 +26,27 @@ class Tracker:
     def compute_homography(self, frame, ratio_thresh=DEFAULT_RATIO_THRESH):
         """ Compute homography between the reference image and a frame. """
         frame_keypoints, frame_descriptors = self.compute_keypoints_and_descriptors(frame)
+        if frame_descriptors is None:
+            return None
+        
         good_matches = self.find_good_matches(frame_descriptors, ratio_thresh)
 
-        if len(good_matches) > self.min_match_count:
+        if len(good_matches) > self.min_match_count and good_matches is not None:
             return self.calculate_homography(good_matches, frame_keypoints)
         return None
 
     def find_good_matches(self, descriptors, ratio_thresh):
         """ Find good matches using the ratio test. """
         matches = self.bf.knnMatch(self.reference_descriptors, descriptors, k=2)
-        return [m for m, n in matches if m.distance < ratio_thresh * n.distance]
+        if not matches:
+            return None
+        good_matches = []
+        for match in matches:
+            if len(match) == 2:
+                m, n = match
+                if m.distance < ratio_thresh * n.distance:
+                    good_matches.append(m)
+        return good_matches
 
     def calculate_homography(self, good_matches, frame_keypoints):
         """ Calculate the homography using matched keypoints. """
