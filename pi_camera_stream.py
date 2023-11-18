@@ -25,9 +25,17 @@ class PiCameraStream:
     def update(self):
         while not self.stopped:
             try:
+                # Fetch the next completed request from the camera system.
+                # This method returns a CompletedRequest object directly.
                 request = self.picam.capture_request()
-                with self.lock:
-                    self.frame = cv2.cvtColor(request.make_array("main"), cv2.COLOR_RGB2BGR)
+
+                if request:  # Check if the request is valid
+                    with self.lock:
+                        # Convert the request buffer to an image array and store it.
+                        self.frame = cv2.cvtColor(request.make_array("main"), cv2.COLOR_RGB2BGR)
+
+                    # After processing this request, release it to free up resources.
+                    request.release()
             except Exception as e:
                 print(f"Error capturing frame: {e}")
 

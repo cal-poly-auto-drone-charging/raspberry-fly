@@ -3,42 +3,65 @@ import argparse
 from tracker import Tracker
 from spotter import Spotter
 from target_finder import TargetFinder
+from pi_camera_stream import PiCameraStream
 
-def main(input_video, reference_image, output_video=None):
+def main(input_source, reference_image, output_video=None):
     # Read the reference image
     ref_image = cv2.imread(reference_image)
 
-    # Open the video file
-    cap = cv2.VideoCapture(input_video)
-    if not cap.isOpened():
-        print("Error: Could not open video.")
-        return
+    # Initialize variables
+    use_camera = input_source.lower() == 'camera'
+    frame_width, frame_height, frame_fps = None, None, None
 
-    # Get video properties
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # Initialize the video source
+    if use_camera:
+        # Set your desired resolution here
+        camera_resolution = (1280, 720)
+        camera_stream = PiCameraStream(resolution=camera_resolution)
+        camera_stream.start_stream()
+        frame_width, frame_height = camera_resolution
+        frame_fps = 30  # Set this to your camera's framerate
+    else:
+        cap = cv2.VideoCapture(input_source)
+        if not cap.isOpened():
+            print("Error: Could not open video.")
+            return
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        frame_fps = cap.get(cv2.CAP_PROP_FPS)
 
-    # Initialize Tracker and Spotter
+    # Initialize Tracker, Spotter, and TargetFinder
     tracker = Tracker(ref_image)
     spotter = Spotter(frame_width, frame_height)
-
-    # Initialize TargetFinder with annotation always set to True
     target_finder = TargetFinder(tracker, spotter, frame_width, frame_height, annotate=True, sensor_dimensions=(0.006287,0.00353644))
 
     # VideoWriter for output, if specified
     out = None
     if output_video:
-        frame_fps = cap.get(cv2.CAP_PROP_FPS)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_video, fourcc, frame_fps, (frame_width, frame_height))
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    previous_frame = None
+
+    # Main processing loop
+    while True:
+        if use_camera:
+            frame = camera_stream.read_frame()
+            if frame is None:
+                break
+            if previous_frame is not None:
+                if (frame == previous_frame).all():
+                    print("Warning: Frame has not changed from previous iteration.")
+
+        else:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
         # Process the frame
         corners, annotated_frame = target_finder.process_frame(frame)
+
+
 
         # Display the annotated frame
         cv2.imshow('Annotated Frame', annotated_frame)
@@ -47,11 +70,16 @@ def main(input_video, reference_image, output_video=None):
         if out:
             out.write(annotated_frame)
 
+        previous_frame = frame.copy()  # Keep a copy of the frame for comparison in the next loop iteration
+
         if cv2.waitKey(1) == 27:
             break
 
     # Release resources
-    cap.release()
+    if use_camera:
+        camera_stream.release()
+    else:
+        cap.release()
     if out:
         out.release()
     cv2.destroyAllWindows()
@@ -59,7 +87,7 @@ def main(input_video, reference_image, output_video=None):
 if __name__ == "__main__":
     # Argument parsing
     parser = argparse.ArgumentParser(description='Target Finder Test Program')
-    parser.add_argument('--input', help='Input video file', default='S1000644.LRV')
+    parser.add_argument('--input', help='Input source (video file or "camera")', default='S1000644.LRV')
     parser.add_argument('--reference', help='Reference image file', default='qr_code.png')
     parser.add_argument('--output', help='Output video file', default='output.mp4')
     args = parser.parse_args()
