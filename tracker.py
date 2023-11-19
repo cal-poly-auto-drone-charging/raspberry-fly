@@ -1,57 +1,65 @@
-import cv2 
+import cv2
 import numpy as np
 
 class Tracker:
-    def __init__(self,reference,min_match_count=10,inlier_threshold=5.0):
-        """ Initializes a Tracker object.
-            
-            During initialization, this function will compute and store SIFT keypoints
-            for the reference image.
+    DEFAULT_MIN_MATCH_COUNT = 10
+    DEFAULT_INLIER_THRESHOLD = 5.0
+    DEFAULT_RATIO_THRESH = 0.75
 
-            Arguments:
-                reference: reference image
-                min_match_count: minimum number of matches for a video frame to be processed.
-                inlier_threshold: maximum re-projection error for inliers in homography computation
-        """
+    def __init__(self, reference, min_match_count=DEFAULT_MIN_MATCH_COUNT, 
+                 inlier_threshold=DEFAULT_INLIER_THRESHOLD):
+        """ Initialize the Tracker with a reference image and parameters for matching. """
         self.min_match_count = min_match_count
         self.inlier_threshold = inlier_threshold
         self.reference = reference
 
-        # Initialize SIFT detector
-        sift = cv2.SIFT_create()
-        self.reference_keypoints, self.reference_descriptors = sift.detectAndCompute(reference, None)
-        
-    def compute_homography(self, frame, ratio_thresh=0.75):
-        """ Calculate homography relating the reference image to a query frame using OpenCV's RANSAC.
-        
-            Arguments:
-                frame: query frame from video
-                ratio_thresh: ratio threshold for filtering keypoint matches
-            Returns:
-                the estimated homography [3,3] or None if not enough matches are found
-        """
-        sift = cv2.SIFT_create()
+        self.sift = cv2.SIFT_create()  # Single SIFT instance for reuse
+        self.bf = cv2.BFMatcher()      # Single BFMatcher instance for reuse
 
-        # Detect keypoints and compute descriptors in the frame
-        frame_keypoints, frame_descriptors = sift.detectAndCompute(frame, None)
+        # Compute keypoints and descriptors for the reference image
+        self.reference_keypoints, self.reference_descriptors = self.compute_keypoints_and_descriptors(reference)
 
-        # Match descriptors using BFMatcher
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(self.reference_descriptors, frame_descriptors, k=2)
+    def compute_keypoints_and_descriptors(self, image):
+        """ Compute SIFT keypoints and descriptors for a given image. """
+        return self.sift.detectAndCompute(image, None)
 
-        # Apply ratio test
-        good_matches = [m for m, n in matches if m.distance < ratio_thresh * n.distance]
-
-        if len(good_matches) > self.min_match_count:
-            src_pts = np.float32([self.reference_keypoints[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-            dst_pts = np.float32([frame_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-
-            # Compute homography using OpenCV's RANSAC method
-            H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self.inlier_threshold)
-
-            return H
-        else:
+    def compute_homography(self, frame, ratio_thresh=DEFAULT_RATIO_THRESH):
+        """ Compute homography between the reference image and a frame. """
+        frame_keypoints, frame_descriptors = self.compute_keypoints_and_descriptors(frame)
+        if frame_descriptors is None:
             return None
+        
+        good_matches = self.find_good_matches(frame_descriptors, ratio_thresh)
+
+        if len(good_matches) > self.min_match_count and good_matches is not None:
+            return self.calculate_homography(good_matches, frame_keypoints)
+        return None
+
+    def find_good_matches(self, descriptors, ratio_thresh):
+        """ Find good matches using the ratio test. """
+        matches = self.bf.knnMatch(self.reference_descriptors, descriptors, k=2)
+        if not matches:
+            return None
+        good_matches = []
+        for match in matches:
+            if len(match) == 2:
+                m, n = match
+                if m.distance < ratio_thresh * n.distance:
+                    good_matches.append(m)
+        return good_matches
+
+    def calculate_homography(self, good_matches, frame_keypoints):
+        """ Calculate the homography using matched keypoints. """
+        src_pts = np.float32([self.reference_keypoints[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([frame_keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+        return cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self.inlier_threshold)[0]
+
+    def get_corners(self, H):
+        """ Calculate the transformed corners of the reference image using homography. """
+        ref_h, ref_w = self.reference.shape[:2]
+        ref_corners = np.float32([[0, 0], [ref_w, 0], [ref_w, ref_h], [0, ref_h]]).reshape(-1, 1, 2)
+        return cv2.perspectiveTransform(ref_corners, H) if H is not None else None
 
     def augment_frame(self, frame, H, yaw='--', altitude='--', distance='--'):
         """ Draw border and add text on video frame based on homography.
