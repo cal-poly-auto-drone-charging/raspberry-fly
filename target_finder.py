@@ -3,12 +3,13 @@ import numpy as np
 
 class TargetFinder:
     def __init__(self, tracker, spotter, frame_width, frame_height, annotate=False, focal_length=0.00304, 
-                 target_dimensions=(0.2032,0.2032), sensor_dimensions=(0.006287,0.004712)):
+                 target_dimensions=(0.2032,0.2032), sensor_dimensions=(0.006287,0.004712), ratio_adjust=4.4196):
         self.tracker = tracker
         self.spotter = spotter
         self.frame_width = frame_width
         self.frame_height = frame_height
         self.annotate = annotate
+        self.ratio_adjust = ratio_adjust
 
         # Calibrations
         self.focal_length = focal_length
@@ -142,11 +143,11 @@ class TargetFinder:
         targ_w_real, targ_h_real = self.target_dimensions
         targ_w_img = np.linalg.norm(corners_2d[0] - corners_2d[1]) / self.pix_per_meter[0]
         targ_h_img = np.linalg.norm(corners_2d[0] - corners_2d[2]) / self.pix_per_meter[1]
-        size_ratio = (targ_w_real / targ_w_img) if (targ_w_img >= targ_h_img) else (targ_h_real / targ_h_img)
+        size_ratio = (targ_w_real / targ_w_img) if (targ_w_img >= targ_h_img) else (targ_h_real / targ_h_img) * self.ratio_adjust
         #print(f"targ_w_img: {targ_w_img}, targ_w_real: {targ_w_real}, size_ratio: {size_ratio}, focal_length: {self.focal_length}")
 
         # Calculate Height
-        estimated_height = size_ratio / self.focal_length
+        estimated_height = size_ratio * self.focal_length
 
         # Calculate the center of the rectangle
         center = np.mean(corners_2d, axis=0)
@@ -154,10 +155,32 @@ class TargetFinder:
 
         # Calculate azimuth
         frame_center_x, frame_center_y = self.frame_width / 2, self.frame_height / 2
-        azimuth = np.arctan2(center_y - frame_center_y, center_x - frame_center_x)
+        azimuth = np.degrees(np.arctan2(center_y - frame_center_y, center_x - frame_center_x)) + 90
 
         # Calculate radius
-        radius = np.linalg.norm([center_x - frame_center_x, center_y - frame_center_y])
+        print("center_x:", center_x, "Type:", type(center_x))
+        print("center_y:", center_y, "Type:", type(center_y))
+        print("frame_center_x:", frame_center_x, "Type:", type(frame_center_x))
+        print("frame_center_y:", frame_center_y, "Type:", type(frame_center_y))
+        print("pix_per_meter[0]:", self.pix_per_meter[0], "Type:", type(self.pix_per_meter[0]))
+        print("pix_per_meter[1]:", self.pix_per_meter[1], "Type:", type(self.pix_per_meter[1]))
+        print("estimated_height:", estimated_height, "Type:", type(estimated_height))
+        print("focal_length:", self.focal_length, "Type:", type(self.focal_length))
 
-        return radius, np.degrees(azimuth) + 90, estimated_height
+        dx = (center_x - frame_center_x) / self.pix_per_meter[0]
+        dy = (center_y - frame_center_y) / self.pix_per_meter[1]
+
+        print("dx:", dx, "Type:", type(dx))
+        print("dy:", dy, "Type:", type(dy))
+
+        radius_sensor = np.linalg.norm([dx, dy])
+        print("radius_sensor:", radius_sensor, "Type:", type(radius_sensor))
+
+        radius = radius_sensor * size_ratio
+        print("radius:", radius, "Type:", type(radius))
+
+        print()
+
+        print(f"Radius: {radius}, Azimuth: {azimuth}, Height: {estimated_height}")
+        return radius, azimuth, estimated_height
 

@@ -54,8 +54,7 @@ def main(input_source, reference_image, output_video=None):
 
         # Process the frame
         corners, annotated_frame = target_finder.process_frame(frame)
-
-
+        #print(corners)
 
         # Display the annotated frame
         cv2.imshow('Annotated Frame', annotated_frame)
