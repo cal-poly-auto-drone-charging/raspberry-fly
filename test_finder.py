@@ -3,7 +3,6 @@ import argparse
 from tracker import Tracker
 from spotter import Spotter
 from target_finder import TargetFinder
-from pi_camera_stream import PiCameraStream
 
 def main(input_source, reference_image, output_video=None):
     # Read the reference image
@@ -15,6 +14,7 @@ def main(input_source, reference_image, output_video=None):
 
     # Initialize the video source
     if use_camera:
+        from pi_camera_stream import PiCameraStream
         # Set your desired resolution here
         camera_resolution = (1280, 720)
         camera_stream = PiCameraStream(resolution=camera_resolution)
